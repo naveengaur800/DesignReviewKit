@@ -8,7 +8,7 @@ Feasibility was proven by a working spike on iOS 26.0 (2026-07-02): SwiftUI's re
 
 | Decision | Choice |
 |---|---|
-| SwiftUI font source | Reflection into the private display list (proven by spike), compiled `#if DEBUG` |
+| SwiftUI font source | Reflection into the private display list (proven by spike), compiled in all configurations — decision revised post-implementation, see §2.4 |
 | UIKit font source (v1) | `UILabel` only — covers nav bar titles and `UIButton` internal labels |
 | Interaction | "Aa" type mode in the chrome bar: outline all text elements, tap for a detail card |
 | Mode model | Tools are mutually exclusive — `activeTool: InspectorTool?` replaces the measurement boolean |
@@ -56,12 +56,12 @@ nonisolated struct FontIdentity: Sendable, Codable {
 
 The existing three sources (subviews, accessibility, layers) continue to produce `.container` elements. Two text sources join them:
 
-1. **SwiftUI display list** (`#if DEBUG` only). Per hosting view — match class names containing `"Hosting"`, not just `_UIHostingView`; NavigationStack content lives under `NavigationStackHostingController`'s inner view — locate the render graph's `SwiftUI.DisplayList` via bounded breadth-first `Mirror` search, then recursively parse items in paint order:
+1. **SwiftUI display list**. Per hosting view — match class names containing `"Hosting"`, not just `_UIHostingView`; NavigationStack content lives under `NavigationStackHostingController`'s inner view — locate the render graph's `SwiftUI.DisplayList` via bounded breadth-first `Mirror` search, then recursively parse items in paint order:
    - `.effect` case → recurse into the nested list.
    - `.content` case with `.text(StyledTextContentView, CGSize)` → breadth-first search the payload for its `NSAttributedString` (public API from there): string and per-run fonts.
    - Unknown cases → search for nested display lists and recurse.
    - **Geometry comes from the layer tree, not the display list.** Item frames inside scroll containers are in content coordinates (the live offset exists only in the platform layers — found during simulator validation: outlines floated one nav-bar height off). Each text payload is matched to its `CGDrawingLayer` in paint order by exact size (±0.5pt), and the layer's window frame is authoritative. Unmatched payloads drop — failure is omission, never misplacement. See `FontInspector-ARCHITECTURE.md` §3.
-2. **UILabel** (all build configurations). The subview walk already visits labels for bounds; additionally read `font` / `attributedText` into `TextAttributes`. Catches UIKit hosts, `UIKitNavigationBar` titles, and button labels.
+2. **UILabel**. The subview walk already visits labels for bounds; additionally read `font` / `attributedText` into `TextAttributes`. Catches UIKit hosts, `UIKitNavigationBar` titles, and button labels.
 
 Dedup policy between sources: when a text element and a container coincide (same rect within tolerance), keep the text element.
 
@@ -73,7 +73,12 @@ If the layer walk detected `CGDrawingLayer`s (SwiftUI drew text) but the display
 
 ### 2.4 Build gating
 
-The reflection-based extractor compiles only in Debug. It calls no private selectors and links no private symbols (pure `Mirror` + type-name matching), so the gate is defense against OS-version fragility surfacing in shipped builds, not App Store scanning. Release builds keep the `UILabel` tier; SwiftUI text degrades to outline + string-less containers from the layer walk.
+**Revised after implementation: the extractor compiles in every configuration** — the original `#if DEBUG` decision was made when the approach was assumed to carry private-API risk, and the spike disproved that. The rationale for compiling it everywhere:
+
+- No private selectors are called and no private symbols are linked (pure `Mirror` + type-name matching) — nothing App Store scanning detects, and the pattern ships in store apps today (e.g. SwiftUI-Introspect).
+- Extraction executes only inside `beginCapture(in:)`; hosts that gate the inspector at runtime (`Configuration(isEnabled:)`, debug menus) keep it from ever running for end users.
+- Every reflective search is node- and depth-bounded, and geometry-by-layer-matching fails toward omission — a changed OS degrades the feature (canary banner), it cannot hang, crash, or misplace.
+- The payoff: Release-configuration design reviews (TestFlight internal builds) get full SwiftUI font data instead of the unavailable banner.
 
 ## 3. Type Mode
 

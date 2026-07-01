@@ -33,7 +33,7 @@ nonisolated struct CapturedScreen: Identifiable, Sendable {
     let textElements: [CapturedTextElement]
 
     /// Whether SwiftUI drew text this capture couldn't resolve fonts for —
-    /// extraction is compiled out (Release) or broken by an OS update.
+    /// the reflection-based extraction broke on this OS version.
     let fontExtractionUnavailable: Bool
 
     /// Decode the stored capture at its original scale.

@@ -9,7 +9,7 @@ All feature code lives in `DesignReviewKit/Sources/DesignReviewKit/FontInspectio
 | File | Role |
 |---|---|
 | `CapturedTextElement.swift` | Models: `CapturedTextElement` (unit-space frame + string + fonts) and `FontIdentity` (face/family/size + display formatting) |
-| `SwiftUITextExtraction.swift` | `#if DEBUG` reflection extractor for SwiftUI text (see §3) |
+| `SwiftUITextExtraction.swift` | Reflection extractor for SwiftUI text, compiled in all configurations (see §3) |
 | `TextElementCapturer.swift` | Orchestrator: UILabel tier + SwiftUI tier + dedup + canary flag |
 | `TypographyCanvasView.swift` | The mode UI: outlines, tap-to-cycle selection, glass font card, copy affordance, unavailable banner |
 
@@ -27,8 +27,8 @@ Touch points in existing code (kept deliberately small):
 host trigger → DesignInspector.beginCapture(in:)
   → ScreenCapturer.capture(window:)            (BEFORE the overlay presents)
       → TextElementCapturer.capture(in:)
-          → UILabel walk                        (all builds — nav titles, UIKit hosts)
-          → SwiftUITextExtraction.extractTexts  (#if DEBUG — SwiftUI Text)
+          → UILabel walk                        (nav titles, UIKit hosts)
+          → SwiftUITextExtraction.extractTexts  (SwiftUI Text)
           → filter / dedupe / cap / normalize to unit coordinates
       → CapturedScreen { textElements, fontExtractionUnavailable }
   → ReviewSession → AnnotatingStateBuilder → AnnotatingState
@@ -74,10 +74,10 @@ toward a wrong position). A layer with no payload simply isn't a text layer.
 
 ### Degradation ladder
 
-1. **Healthy (Debug, supported OS):** full outlines + fonts + strings.
+1. **Healthy (supported OS):** full outlines + fonts + strings.
 2. **Per-element failure** (attributed string found but no font attribute):
    element still outlines and taps; card shows the string + "Font unavailable".
-3. **Wholesale failure** (Release build, or OS broke the reflection): SwiftUI
+3. **Wholesale failure** (an OS update broke the reflection): SwiftUI
    elements disappear from typography mode; UILabel-tier elements keep working;
    the **canary** (`fontExtractionUnavailable`) shows one explanatory banner.
    Canary rule: `CGDrawingLayer`s exist in the window but zero SwiftUI texts
@@ -130,7 +130,10 @@ the throwaway harness):
 - Geometry-by-layer-matching fails toward omission, never wrong placement.
 - The canary makes wholesale breakage visible in one glance instead of N
   confusing empty cards.
-- Everything is `#if DEBUG`, so a broken OS can never affect a Release build.
+- Extraction executes only inside `beginCapture(in:)` — hosts that gate the
+  inspector at runtime (`Configuration(isEnabled:)`, debug menus) keep it from
+  ever running for end users. It compiles in every configuration (no private
+  symbols; see spec §2.4 for the revised gating decision).
 
 ## 5. Known Limitations
 

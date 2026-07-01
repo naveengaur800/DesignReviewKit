@@ -194,7 +194,7 @@ struct TypographyCanvasView: View {
 
     private var unavailableBanner: some View {
         Label(
-            "Font extraction isn't available in this build or OS version",
+            "Font extraction isn't available on this iOS version",
             systemImage: "exclamationmark.triangle"
         )
         .font(.footnote.weight(.medium))

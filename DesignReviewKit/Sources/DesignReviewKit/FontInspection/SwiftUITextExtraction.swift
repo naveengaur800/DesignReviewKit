@@ -5,8 +5,6 @@
 //  Created by Naveen Gaur on 02/07/2026.
 //
 
-#if DEBUG
-
 import UIKit
 
 /// Recover rendered SwiftUI text — frame, string, and resolved fonts — by
@@ -29,8 +27,10 @@ import UIKit
 /// change between OS releases. `FontInspector-ARCHITECTURE.md` documents the
 /// repair playbook.
 ///
-/// Compiled out of Release builds: fonts then come from the UILabel tier only
-/// and SwiftUI text degrades as `CapturedScreen.fontExtractionUnavailable`.
+/// Compiled in every configuration: extraction executes only during capture,
+/// every search is budget-bounded, and an OS that changes internals degrades
+/// the feature to `CapturedScreen.fontExtractionUnavailable` — it can't hang,
+/// crash, or misplace elements.
 enum SwiftUITextExtraction {
 
     /// One rendered text run group, in window coordinates.
@@ -248,5 +248,3 @@ enum SwiftUITextExtraction {
         return found
     }
 }
-
-#endif

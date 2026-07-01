@@ -8,15 +8,14 @@
 import UIKit
 
 /// Collect on-screen text elements with their resolved typography at capture
-/// time, pairing the always-available UILabel tier with the DEBUG-only SwiftUI
-/// render-graph tier.
+/// time, pairing the UILabel tier with the SwiftUI render-graph tier.
 struct TextElementCapturer {
 
     /// Text capture output for one screen.
     struct Capture {
         let elements: [CapturedTextElement]
-        /// Whether SwiftUI drew text this capture couldn't resolve — extraction
-        /// is compiled out (Release) or broken by an OS update.
+        /// Whether SwiftUI drew text this capture couldn't resolve — the
+        /// reflection-based extraction broke on this OS version.
         let fontExtractionUnavailable: Bool
     }
 
@@ -39,12 +38,10 @@ struct TextElementCapturer {
         collectLabels(under: window, window: window, depth: 0, into: &rawElements)
 
         var swiftUITextCount = 0
-        #if DEBUG
         for text in SwiftUITextExtraction.extractTexts(in: window) {
             rawElements.append((text.frame, text.string, text.fonts.map(FontIdentity.init)))
             swiftUITextCount += 1
         }
-        #endif
 
         // Canary: SwiftUI drew text layers but extraction recovered none of them —
         // typography mode shows one explanatory banner instead of N empty cards.

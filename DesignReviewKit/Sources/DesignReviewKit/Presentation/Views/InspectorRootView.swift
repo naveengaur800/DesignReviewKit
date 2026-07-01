@@ -53,16 +53,28 @@ struct InspectorRootView: View {
                         AnnotationCanvasView(state: state) { event in
                             viewModel.dispatch(with: .canvas(event))
                         }
-                        .allowsHitTesting(!viewModel.isMeasurementModeActive)
+                        .allowsHitTesting(viewModel.activeTool == nil)
 
-                        if viewModel.isMeasurementModeActive {
+                        // Tool overlays get fresh state per screen — a readout on
+                        // one capture means nothing over another.
+                        switch viewModel.activeTool {
+                        case .measure:
                             MeasurementCanvasView(
                                 imagePointSize: state.imagePointSize,
                                 elementFrames: state.elementFrames
                             )
-                            // Fresh measurement state per screen — a line measured on
-                            // one capture means nothing over another.
                             .id(state.screenID)
+
+                        case .typography:
+                            TypographyCanvasView(
+                                imagePointSize: state.imagePointSize,
+                                textElements: state.textElements,
+                                isExtractionUnavailable: state.fontExtractionUnavailable
+                            )
+                            .id(state.screenID)
+
+                        case nil:
+                            EmptyView()
                         }
                     }
                     .scaleEffect(hasEntered ? 1 : entryScale(for: state, in: cardProxy))
@@ -179,11 +191,18 @@ struct InspectorRootView: View {
 
             HStack(spacing: 10) {
                 Button {
-                    viewModel.dispatch(with: .toolbar(.measureModeToggled))
+                    viewModel.dispatch(with: .toolbar(.toolToggled(.measure)))
                 } label: {
-                    chromeIcon("ruler", isProminent: viewModel.isMeasurementModeActive)
+                    chromeIcon("ruler", isProminent: viewModel.activeTool == .measure)
                 }
                 .accessibilityLabel("Measure Distances")
+
+                Button {
+                    viewModel.dispatch(with: .toolbar(.toolToggled(.typography)))
+                } label: {
+                    chromeIcon("textformat", isProminent: viewModel.activeTool == .typography)
+                }
+                .accessibilityLabel("Inspect Fonts")
 
                 Button {
                     viewModel.dispatch(with: .toolbar(.exportTapped))

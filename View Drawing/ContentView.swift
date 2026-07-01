@@ -72,6 +72,12 @@ private struct DemoCardScreen: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 12)
 
+            // Custom (non-system) face so typography mode demos font extraction
+            // beyond SF Pro.
+            Text("ava.design")
+                .font(.custom("Avenir-Heavy", size: 13))
+                .foregroundStyle(.tint)
+
             HStack(spacing: 12) {
                 Button {
                 } label: {

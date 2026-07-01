@@ -27,6 +27,10 @@ extension InspectorViewModel {
         let thumbnails: [ThumbnailItem]
         /// Element frames in unit coordinates, for measurement-mode edge snapping.
         let elementFrames: [CGRect]
+        /// Text elements with resolved typography, for typography-mode inspection.
+        let textElements: [CapturedTextElement]
+        /// Whether typography mode should explain missing SwiftUI fonts with a banner.
+        let fontExtractionUnavailable: Bool
     }
 
     struct AnnotationDisplayItem: Identifiable {

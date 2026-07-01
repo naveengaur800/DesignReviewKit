@@ -28,6 +28,14 @@ nonisolated struct CapturedScreen: Identifiable, Sendable {
     /// in unit coordinates. Measurement mode snaps to these edges.
     let elementFrames: [CGRect]
 
+    /// Text elements with their resolved typography at capture time, in unit
+    /// coordinates. Typography mode outlines and inspects these.
+    let textElements: [CapturedTextElement]
+
+    /// Whether SwiftUI drew text this capture couldn't resolve fonts for —
+    /// extraction is compiled out (Release) or broken by an OS update.
+    let fontExtractionUnavailable: Bool
+
     /// Decode the stored capture at its original scale.
     func makeImage() -> UIImage? {
         UIImage(data: imageData, scale: displayScale)

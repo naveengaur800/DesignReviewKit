@@ -57,7 +57,9 @@ enum AnnotatingStateBuilder {
                     )
                 }
                 : [],
-            elementFrames: screen?.elementFrames ?? []
+            elementFrames: screen?.elementFrames ?? [],
+            textElements: screen?.textElements ?? [],
+            fontExtractionUnavailable: screen?.fontExtractionUnavailable ?? false
         )
     }
 

@@ -23,6 +23,15 @@ final class InspectorViewModel: ObservableObject {
         case annotating(AnnotatingState)
     }
 
+    // MARK: - Tools
+
+    /// Transient canvas overlay tools, mutually exclusive with each other and
+    /// with annotating. Their readouts never enter the session or the report.
+    enum InspectorTool {
+        case measure
+        case typography
+    }
+
     // MARK: - ViewEvent
 
     enum ViewEvent {
@@ -44,7 +53,7 @@ final class InspectorViewModel: ObservableObject {
         enum ToolbarEvent {
             case closeTapped
             case exportTapped
-            case measureModeToggled
+            case toolToggled(InspectorTool)
             case endSessionConfirmed
             case thumbnailTapped(screenID: UUID)
         }
@@ -70,9 +79,9 @@ final class InspectorViewModel: ObservableObject {
     @Published
     private(set) var commentDraft: CommentDraft?
 
-    /// Whether drags measure distances instead of drawing annotations.
+    /// Active overlay tool on the canvas; `nil` while annotating.
     @Published
-    private(set) var isMeasurementModeActive = false
+    private(set) var activeTool: InspectorTool?
 
     @Published
     private(set) var isGeneratingReport = false
@@ -133,7 +142,7 @@ final class InspectorViewModel: ObservableObject {
         activeScreenID = screen.id
         selectedAnnotationID = nil
         draftNormalizedRect = nil
-        isMeasurementModeActive = false
+        activeTool = nil
         syncViewState()
     }
 
@@ -261,8 +270,8 @@ final class InspectorViewModel: ObservableObject {
         case .exportTapped:
             generateReport()
 
-        case .measureModeToggled:
-            isMeasurementModeActive.toggle()
+        case .toolToggled(let tool):
+            activeTool = activeTool == tool ? nil : tool
 
         case .endSessionConfirmed:
             onEndSession()
@@ -276,7 +285,7 @@ final class InspectorViewModel: ObservableObject {
 
     private func closeInspector() {
         selectedAnnotationID = nil
-        isMeasurementModeActive = false
+        activeTool = nil
         imageCache.removeImages(forScreenIDs: session.removeEmptyScreens())
 
         guard !session.screens.isEmpty else {

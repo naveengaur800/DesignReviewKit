@@ -31,9 +31,24 @@ public final class DesignInspector {
         /// `nil` shows raw readings (face, size, hex) everywhere.
         public var tokenResolver: (any DesignTokenResolving)?
 
-        public init(isEnabled: Bool = true, tokenResolver: (any DesignTokenResolving)? = nil) {
+        /// Host hook that materializes the in-process accessibility tree so
+        /// accessibility mode can read SwiftUI elements. iOS builds that tree
+        /// lazily — with no assistive technology attached, SwiftUI's bridged
+        /// nodes don't exist — and the only switch is a private symbol. The
+        /// package never links it; the host supplies this closure (gated to
+        /// internal builds) and the inspector invokes it once at creation, so
+        /// the tree is warm before the first capture. `nil` leaves the runtime
+        /// untouched; accessibility mode then shows an explanatory banner.
+        public var accessibilityRuntimeEnabler: (@Sendable () -> Void)?
+
+        public init(
+            isEnabled: Bool = true,
+            tokenResolver: (any DesignTokenResolving)? = nil,
+            accessibilityRuntimeEnabler: (@Sendable () -> Void)? = nil
+        ) {
             self.isEnabled = isEnabled
             self.tokenResolver = tokenResolver
+            self.accessibilityRuntimeEnabler = accessibilityRuntimeEnabler
         }
     }
 
@@ -49,6 +64,14 @@ public final class DesignInspector {
 
     public init(configuration: Configuration = Configuration()) {
         self.configuration = configuration
+
+        // Materialize the accessibility tree early (spec §7.1): enabling is
+        // lazy-safe, but the tree needs a beat to bridge, so we warm it at
+        // composition-root time rather than at capture. No-op when the host
+        // supplies no enabler or the tool is disabled.
+        if configuration.isEnabled {
+            configuration.accessibilityRuntimeEnabler?()
+        }
     }
 
     /// Capture the scene's key window and present the annotation UI.

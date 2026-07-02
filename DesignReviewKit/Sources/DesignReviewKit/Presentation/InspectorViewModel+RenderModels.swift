@@ -31,6 +31,10 @@ extension InspectorViewModel {
         let textElements: [CapturedTextElement]
         /// Whether typography mode should explain missing SwiftUI fonts with a banner.
         let fontExtractionUnavailable: Bool
+        /// Accessibility elements with raw properties, for accessibility-mode inspection.
+        let accessibilityElements: [CapturedAccessibilityElement]
+        /// Whether accessibility mode should explain an unmaterialized tree with a banner.
+        let accessibilityTreeUnavailable: Bool
         /// Host mapping from readings to design-token names; `nil` shows raw readings.
         let tokenResolver: (any DesignTokenResolving)?
     }

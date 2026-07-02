@@ -34,6 +34,7 @@ struct ScreenCapturer {
         guard let data = image.jpegData(compressionQuality: Self.compressionQuality) else { return nil }
 
         let textCapture = TextElementCapturer().capture(in: window)
+        let accessibilityCapture = AccessibilityElementCapturer().capture(in: window)
         return CapturedScreen(
             id: UUID(),
             imageData: data,
@@ -43,7 +44,9 @@ struct ScreenCapturer {
             annotations: [],
             elementFrames: normalizedElementFrames(in: window),
             textElements: textCapture.elements,
-            fontExtractionUnavailable: textCapture.fontExtractionUnavailable
+            fontExtractionUnavailable: textCapture.fontExtractionUnavailable,
+            accessibilityElements: accessibilityCapture.elements,
+            accessibilityTreeUnavailable: accessibilityCapture.treeUnavailable
         )
     }
 

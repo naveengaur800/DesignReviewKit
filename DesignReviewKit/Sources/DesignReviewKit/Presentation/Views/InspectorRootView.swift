@@ -74,6 +74,14 @@ struct InspectorRootView: View {
                             )
                             .id(state.screenID)
 
+                        case .accessibility:
+                            AccessibilityCanvasView(
+                                imagePointSize: state.imagePointSize,
+                                elements: state.accessibilityElements,
+                                isTreeUnavailable: state.accessibilityTreeUnavailable
+                            )
+                            .id(state.screenID)
+
                         case nil:
                             EmptyView()
                         }
@@ -204,6 +212,13 @@ struct InspectorRootView: View {
                     chromeIcon("textformat", isProminent: viewModel.activeTool == .typography)
                 }
                 .accessibilityLabel("Inspect Fonts")
+
+                Button {
+                    viewModel.dispatch(with: .toolbar(.toolToggled(.accessibility)))
+                } label: {
+                    chromeIcon("accessibility", isProminent: viewModel.activeTool == .accessibility)
+                }
+                .accessibilityLabel("Inspect Accessibility")
 
                 Button {
                     viewModel.dispatch(with: .toolbar(.exportTapped))

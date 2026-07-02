@@ -87,6 +87,8 @@ private struct DemoCardScreen: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .buttonBorderShape(.capsule)
+                .accessibilityIdentifier("profile_follow_button")
+                .accessibilityHint("Follows Ava and adds her to your feed")
 
                 Button {
                 } label: {

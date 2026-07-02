@@ -30,6 +30,7 @@ final class InspectorViewModel: ObservableObject {
     enum InspectorTool {
         case measure
         case typography
+        case accessibility
     }
 
     // MARK: - ViewEvent

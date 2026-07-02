@@ -36,6 +36,14 @@ nonisolated struct CapturedScreen: Identifiable, Sendable {
     /// the reflection-based extraction broke on this OS version.
     let fontExtractionUnavailable: Bool
 
+    /// Accessibility elements with their raw properties at capture time, in unit
+    /// coordinates. Accessibility mode outlines and inspects these.
+    let accessibilityElements: [CapturedAccessibilityElement]
+
+    /// Whether content was drawn but the accessibility tree was empty — the
+    /// runtime wasn't materialized (no assistive tech / host enabler) this capture.
+    let accessibilityTreeUnavailable: Bool
+
     /// Decode the stored capture at its original scale.
     func makeImage() -> UIImage? {
         UIImage(data: imageData, scale: displayScale)

@@ -40,10 +40,16 @@ struct TypographyCanvasView: View {
     @State
     private var selectionHaptics = UIImpactFeedbackGenerator(style: .light)
 
+    /// Measured card size, so positioning clamps with real extents — wide
+    /// cards (long face names, token names, hex) must never crop at an edge.
+    @State
+    private var cardSize: CGSize = .zero
+
     private enum Metrics {
-        static let cardLift: CGFloat = 46
-        static let cardEdgeInsetX: CGFloat = 90
-        static let cardEdgeInsetY: CGFloat = 46
+        static let cardSpacing: CGFloat = 12
+        static let cardEdgeMargin: CGFloat = 8
+        /// Worst-case footprint used for the first frame, before measurement.
+        static let estimatedCardSize = CGSize(width: 300, height: 62)
         static let copyConfirmationSeconds: Double = 1.2
     }
 
@@ -185,6 +191,11 @@ struct TypographyCanvasView: View {
         // not fall through and reselect whatever sits under the card.
         .onTapGesture {}
         .frame(maxWidth: 300)
+        .onGeometryChange(for: CGSize.self) { proxy in
+            proxy.size
+        } action: { size in
+            cardSize = size
+        }
         .position(cardPosition(for: element, in: imageFrame))
         .transition(.scale(scale: 0.9).combined(with: .opacity))
     }
@@ -235,13 +246,29 @@ struct TypographyCanvasView: View {
         return "\(fonts) — “\(element.string.prefix(60))”"
     }
 
-    /// Float the card just above the element's visible portion, clamped inside
-    /// the capture.
+    /// Float the card above the element's visible portion, keeping the whole
+    /// card inside the capture using its measured size, and flipping below the
+    /// element when there's no room above — the card never crops at an edge
+    /// and never covers the text it describes.
     private func cardPosition(for element: CapturedTextElement, in imageFrame: CGRect) -> CGPoint {
         let rect = displayRect(for: element, in: imageFrame)
         guard !rect.isNull else { return CGPoint(x: imageFrame.midX, y: imageFrame.midY) }
-        return CGPoint(x: rect.midX, y: rect.minY - Metrics.cardLift)
-            .clamped(to: imageFrame.insetBy(dx: Metrics.cardEdgeInsetX, dy: Metrics.cardEdgeInsetY))
+
+        let size = cardSize == .zero ? Metrics.estimatedCardSize : cardSize
+        let halfWidth = size.width / 2
+        let halfHeight = size.height / 2
+
+        // A capture narrower than the card centers it horizontally.
+        let minX = imageFrame.minX + halfWidth + Metrics.cardEdgeMargin
+        let maxX = imageFrame.maxX - halfWidth - Metrics.cardEdgeMargin
+        let x = minX <= maxX ? min(max(rect.midX, minX), maxX) : imageFrame.midX
+
+        let topEdgeIfAbove = rect.minY - Metrics.cardSpacing - size.height
+        let y = topEdgeIfAbove >= imageFrame.minY + Metrics.cardEdgeMargin
+            ? rect.minY - Metrics.cardSpacing - halfHeight
+            : min(rect.maxY + Metrics.cardSpacing + halfHeight,
+                  imageFrame.maxY - halfHeight - Metrics.cardEdgeMargin)
+        return CGPoint(x: x, y: y)
     }
 
     // MARK: - Extraction Banner

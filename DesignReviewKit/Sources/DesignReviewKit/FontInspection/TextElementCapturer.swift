@@ -39,7 +39,7 @@ struct TextElementCapturer {
 
         var swiftUITextCount = 0
         for text in SwiftUITextExtraction.extractTexts(in: window) {
-            rawElements.append((text.frame, text.string, text.fonts.map(FontIdentity.init)))
+            rawElements.append((text.frame, text.string, text.fonts))
             swiftUITextCount += 1
         }
 
@@ -97,13 +97,14 @@ struct TextElementCapturer {
         }
     }
 
-    /// Read the label's per-run fonts from attributed text when present,
-    /// falling back to its plain font.
+    /// Read the label's per-run typography from attributed text when present,
+    /// falling back to its plain font and color.
     private func fontIdentities(for label: UILabel) -> [FontIdentity] {
-        if let runFonts = label.attributedText?.distinctRunFonts, !runFonts.isEmpty {
-            return runFonts.map(FontIdentity.init)
+        let labelColor = (label.textColor as UIColor?).flatMap(TextColor.init)
+        if let runs = label.attributedText?.distinctRunIdentities, !runs.isEmpty {
+            return runs.map { $0.fillingMissingColor(with: labelColor) }
         }
-        return label.font.map { [FontIdentity(font: $0)] } ?? []
+        return label.font.map { [FontIdentity(font: $0, color: label.textColor)] } ?? []
     }
 
     // MARK: - Canary

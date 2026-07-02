@@ -39,8 +39,8 @@ enum SwiftUITextExtraction {
     struct ExtractedText {
         let frame: CGRect
         let string: String
-        /// One entry per distinct styled run, in run order.
-        let fonts: [UIFont]
+        /// One identity (font + color) per distinct styled run, in run order.
+        let fonts: [FontIdentity]
     }
 
     /// Bound every reflective search so a changed OS can degrade the feature
@@ -64,7 +64,7 @@ enum SwiftUITextExtraction {
     private struct PendingText {
         let size: CGSize
         let string: String
-        let fonts: [UIFont]
+        let fonts: [FontIdentity]
         /// Display-list position — exact for unscrolled content, offset by the
         /// scroll distance inside scroll containers. Used only to choose
         /// between same-size layer candidates, never as final geometry.
@@ -213,7 +213,7 @@ enum SwiftUITextExtraction {
         pending.append(PendingText(
             size: size,
             string: attributed.string,
-            fonts: attributed.distinctRunFonts,
+            fonts: attributed.distinctRunIdentities,
             approximateCenter: center
         ))
     }

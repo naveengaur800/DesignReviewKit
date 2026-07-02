@@ -8,7 +8,7 @@ All feature code lives in `DesignReviewKit/Sources/DesignReviewKit/FontInspectio
 
 | File | Role |
 |---|---|
-| `CapturedTextElement.swift` | Models: `CapturedTextElement` (unit-space frame + string + fonts) and `FontIdentity` (face/family/size + display formatting) |
+| `CapturedTextElement.swift` | Models: `CapturedTextElement` (unit-space frame + string + fonts) and `FontIdentity` (face/family/size/color + display formatting) |
 | `SwiftUITextExtraction.swift` | Reflection extractor for SwiftUI text, compiled in all configurations (see §3) |
 | `TextElementCapturer.swift` | Orchestrator: UILabel tier + SwiftUI tier + dedup + canary flag |
 | `TypographyCanvasView.swift` | The mode UI: outlines, tap-to-cycle selection, glass font card, copy affordance, unavailable banner |
@@ -55,8 +55,9 @@ recursively in paint order:
 - `effect` items wrap a nested `DisplayList` → recurse.
 - `content` items whose value case is `text` carry `(StyledTextContentView, CGSize)`;
   a second bounded search inside finds the stored `NSAttributedString` —
-  **public API from here**: `.string` and per-run `.font` attributes (which is
-  why mixed-run text reports every font).
+  **public API from here**: `.string` plus per-run `.font` and
+  `.foregroundColor` attributes (which is why mixed-run text reports every
+  font and color).
 - Unknown item kinds → search for nested lists and recurse.
 
 **Phase 2 — geometry (where the text is).** Display-list frames are **not
@@ -148,5 +149,8 @@ the throwaway harness):
   and bounded to identically-sized siblings.
 - UIKit tier covers `UILabel` only (v1 scope): `UITextView`/`UITextField`/
   `CATextLayer`/`UIButton.Configuration` are future tiers.
+- Gradient/material text fills report their base ink color, not the effect;
+  colors are as rendered at capture time (a dark-mode capture reports
+  dark-mode-resolved colors).
 - The card shows fonts as rendered (post Dynamic Type resolution); it does not
   back-map to text styles or design tokens (future, per spec §7).

@@ -12,7 +12,7 @@ Feasibility was proven by a working spike on iOS 26.0 (2026-07-02): SwiftUI's re
 | UIKit font source (v1) | `UILabel` only — covers nav bar titles and `UIButton` internal labels |
 | Interaction | "Aa" type mode in the chrome bar: outline all text elements, tap for a detail card |
 | Mode model | Tools are mutually exclusive — `activeTool: InspectorTool?` replaces the measurement boolean |
-| Readout depth | Core identity: face name, family, point size (per run for mixed-font text) |
+| Readout depth | Face name, family, point size, and rendered color (per run for mixed-style text) |
 | Persistence | Ephemeral, like measurements — never enters the session, annotations, or PDF |
 | Handoff | Card offers a copy affordance producing a one-line summary |
 | Failure UX | Element still outlines; card shows the string with "Font unavailable" |
@@ -23,38 +23,36 @@ Feasibility was proven by a working spike on iOS 26.0 (2026-07-02): SwiftUI's re
 
 All font data is harvested at capture time in `ScreenCapturer` — the inspector operates on a frozen screenshot, so nothing can be queried later.
 
-### 2.1 Unified element model
+### 2.1 Element model
 
-Replace `CapturedScreen.elementFrames: [CGRect]` with typed elements:
+**Revised during implementation:** the interview chose a unified `CapturedElement` replacing `elementFrames: [CGRect]`, but the build kept `elementFrames` untouched — measurement and spacing stay entirely unmodified, honoring the "minimal changes to existing code" constraint — and added a parallel text-element array instead. As built:
 
 ```swift
-nonisolated struct CapturedElement: Sendable, Codable {
-    enum Kind: Sendable, Codable {
-        case container
-        case text(TextAttributes)
-    }
-    let normalizedRect: CGRect   // unit coordinates, same convention as today
-    let kind: Kind
-}
-
-nonisolated struct TextAttributes: Sendable, Codable {
+nonisolated struct CapturedTextElement: Identifiable, Sendable, Equatable {
+    let id: UUID
+    let normalizedRect: CGRect   // unit coordinates, same convention as elementFrames
     let string: String
-    let fonts: [FontIdentity]    // one per distinct run; empty = extraction failed
+    let fonts: [FontIdentity]    // one per distinct styled run; empty = extraction failed
 }
 
-nonisolated struct FontIdentity: Sendable, Codable {
+nonisolated struct FontIdentity: Sendable, Hashable {
     let faceName: String         // PostScript name, e.g. "GTAmerica-Bold"
     let familyName: String
     let pointSize: CGFloat
+    let color: TextColor?        // flat run ink; nil when none was recorded
+}
+
+nonisolated struct TextColor: Sendable, Hashable {
+    let red, green, blue, alpha: CGFloat   // resolved sRGB, as rendered
 }
 ```
 
-- Measurement/spacing consume `normalizedRect` from the same array — one walk, one dedup pass, text elements remain snap and spacing targets. `ElementSpacingCalculator` and `MeasurementCanvasView` signatures change from `[CGRect]` to `[CapturedElement]` (or map to rects at the call site).
-- `fonts` is an array because the payload is an `NSAttributedString`; mixed-run text (inline bold, styled spans) reports each distinct font.
+- `CapturedScreen` gains `textElements: [CapturedTextElement]` and `fontExtractionUnavailable: Bool`; each tool keeps its own input and neither `ElementSpacingCalculator` nor `MeasurementCanvasView` changed.
+- `fonts` is an array because the payload is an `NSAttributedString`; mixed-run text (inline bold, colored spans) reports each distinct font-and-ink pairing.
 
 ### 2.2 Walk sources
 
-The existing three sources (subviews, accessibility, layers) continue to produce `.container` elements. Two text sources join them:
+The existing three sources (subviews, accessibility, layers) are untouched. Two text sources join them:
 
 1. **SwiftUI display list**. Per hosting view — match class names containing `"Hosting"`, not just `_UIHostingView`; NavigationStack content lives under `NavigationStackHostingController`'s inner view — locate the render graph's `SwiftUI.DisplayList` via bounded breadth-first `Mirror` search, then recursively parse items in paint order:
    - `.effect` case → recurse into the nested list.
@@ -93,7 +91,7 @@ If the layer walk detected `CGDrawingLayer`s (SwiftUI drew text) but the display
 - All `.text` elements draw a thin outline (indigo, to read distinctly against measurement red and annotation styling), denormalized from unit coordinates into the displayed image frame — same math as measurement.
 - Tap selects the smallest text element under the finger (reuse the smallest-rect policy from `ElementSpacingCalculator.pressedElement`); repeated taps on overlapping elements cycle, matching annotation-selection convention.
 - Selection presents a glass detail card anchored near the element with edge avoidance (same behavior family as the spacing readout menu):
-  - **Line 1 (identity):** `GTAmerica-Bold · 19pt`. One row per distinct run font when mixed. System faces may render as `SF Pro Semibold · 17pt` via a small `.SFUI-*` prefix mapping — low priority.
+  - **Line 1 (identity):** `GTAmerica-Bold · 19pt · #1C1C1E` with a color swatch. One row per distinct run when mixed. System faces may render as `SF Pro Semibold · 17pt` via a small `.SFUI-*` prefix mapping — low priority.
   - **Line 2 (context):** the string, one line, tail-truncated.
   - **Copy affordance:** copies `GTAmerica-Bold 19pt — "Profile Header"`; haptic tick + brief checkmark confirmation.
 - Tap outside any element, tap the selected element again, exiting the mode, or switching screens dismisses the card.
@@ -124,7 +122,7 @@ If the layer walk detected `CGDrawingLayer`s (SwiftUI drew text) but the display
 ## 7. Out of Scope (v1) / Future
 
 - Design-token reverse mapping (host-supplied token table naming `bodyM` etc., flagging off-scale sizes) — the natural v2; requires public API for the token table.
-- Text color, line height, alignment in the card — line metrics are already reachable (`EncodedFontMetrics`: capHeight/ascender/descender/leading) if wanted later.
+- Line height and alignment in the card — line metrics are already reachable (`EncodedFontMetrics`: capHeight/ascender/descender/leading) if wanted later.
 - `UITextView` / `UITextField` / `CATextLayer` / `UIButton.Configuration` introspection tiers.
 - Persisting font readouts into annotations or the PDF report (deliberately ephemeral, matching measurements).
 - Badges-everywhere survey overlay (show all font sizes at once).

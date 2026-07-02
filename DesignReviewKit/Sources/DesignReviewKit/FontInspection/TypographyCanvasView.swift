@@ -150,9 +150,18 @@ struct TypographyCanvasView: View {
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(element.fonts, id: \.self) { font in
-                        Text(font.summary)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.primary)
+                        HStack(spacing: 6) {
+                            if let color = font.color {
+                                colorSwatch(color)
+                            }
+                            Text(font.summary)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.primary)
+                                // Long identities (custom faces + hex) scale down
+                                // rather than wrap and misalign the swatch.
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.75)
+                        }
                     }
                 }
 
@@ -194,8 +203,16 @@ struct TypographyCanvasView: View {
         .accessibilityLabel("Copy Font Summary")
     }
 
+    /// Rendered ink of a run; the ring keeps near-white swatches visible on glass.
+    private func colorSwatch(_ color: TextColor) -> some View {
+        Circle()
+            .fill(Color(red: color.red, green: color.green, blue: color.blue, opacity: color.alpha))
+            .frame(width: 10, height: 10)
+            .overlay(Circle().stroke(Color.primary.opacity(0.2), lineWidth: 0.5))
+    }
+
     /// One-line handoff for annotation comments, e.g.
-    /// `GTAmerica-Bold · 19pt — "Profile Header"`.
+    /// `GTAmerica-Bold · 19pt · #1C1C1E — "Profile Header"`.
     private func copySummary(for element: CapturedTextElement) -> String {
         let fonts = element.fonts.map(\.summary).joined(separator: " | ")
         return "\(fonts) — “\(element.string.prefix(60))”"

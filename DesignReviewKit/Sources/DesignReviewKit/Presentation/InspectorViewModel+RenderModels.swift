@@ -31,6 +31,8 @@ extension InspectorViewModel {
         let textElements: [CapturedTextElement]
         /// Whether typography mode should explain missing SwiftUI fonts with a banner.
         let fontExtractionUnavailable: Bool
+        /// Host mapping from readings to design-token names; `nil` shows raw readings.
+        let tokenResolver: (any DesignTokenResolving)?
     }
 
     struct AnnotationDisplayItem: Identifiable {

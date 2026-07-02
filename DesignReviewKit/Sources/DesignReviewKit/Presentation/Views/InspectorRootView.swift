@@ -69,7 +69,8 @@ struct InspectorRootView: View {
                             TypographyCanvasView(
                                 imagePointSize: state.imagePointSize,
                                 textElements: state.textElements,
-                                isExtractionUnavailable: state.fontExtractionUnavailable
+                                isExtractionUnavailable: state.fontExtractionUnavailable,
+                                tokenResolver: state.tokenResolver
                             )
                             .id(state.screenID)
 

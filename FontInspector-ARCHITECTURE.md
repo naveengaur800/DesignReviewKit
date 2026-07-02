@@ -12,12 +12,13 @@ All feature code lives in `DesignReviewKit/Sources/DesignReviewKit/FontInspectio
 | `SwiftUITextExtraction.swift` | Reflection extractor for SwiftUI text, compiled in all configurations (see §3) |
 | `TextElementCapturer.swift` | Orchestrator: UILabel tier + SwiftUI tier + dedup + canary flag |
 | `TypographyCanvasView.swift` | The mode UI: outlines, tap-to-cycle selection, glass font card, copy affordance, unavailable banner |
+| `DesignTokenResolving.swift` | Public hook: hosts map colors/fonts to their design-token names, shown in place of raw readings |
 
 Touch points in existing code (kept deliberately small):
 
 - `CapturedScreen` — two new stored fields: `textElements`, `fontExtractionUnavailable`.
 - `ScreenCapturer.capture(window:)` — one call into `TextElementCapturer`.
-- `InspectorViewModel` — `InspectorTool` enum (`.measure` / `.typography`) replaces the measurement boolean; one toolbar event `toolToggled(InspectorTool)` enforces mutual exclusivity.
+- `InspectorViewModel` — `InspectorTool` enum (`.measure` / `.typography`) replaces the measurement boolean; one toolbar event `toolToggled(InspectorTool)` enforces mutual exclusivity. Threads `Configuration.tokenResolver` into `AnnotatingState` for the card.
 - `InspectorRootView` — the "Aa" chrome button and the tool-overlay mount switch.
 - `AnnotatingState` / `AnnotatingStateBuilder` — passthrough of the two new fields.
 

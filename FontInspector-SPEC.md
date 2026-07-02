@@ -18,6 +18,7 @@ Feasibility was proven by a working spike on iOS 26.0 (2026-07-02): SwiftUI's re
 | Failure UX | Element still outlines; card shows the string with "Font unavailable" |
 | Wholesale breakage | Capture-time canary flags the screen; type mode shows one explanatory banner |
 | Font naming | Raw face name is primary (custom fonts are the primary audience); light prettification of `.SFUI-*` faces is a nicety, not a requirement |
+| Token mapping | Host-supplied `DesignTokenResolving` (Configuration.tokenResolver): color and font token names replace raw readings in the card row; the copy line keeps both forms. No resolver → raw readings |
 
 ## 2. Capture Pipeline
 
@@ -35,15 +36,15 @@ nonisolated struct CapturedTextElement: Identifiable, Sendable, Equatable {
     let fonts: [FontIdentity]    // one per distinct styled run; empty = extraction failed
 }
 
-nonisolated struct FontIdentity: Sendable, Hashable {
-    let faceName: String         // PostScript name, e.g. "GTAmerica-Bold"
-    let familyName: String
-    let pointSize: CGFloat
-    let color: TextColor?        // flat run ink; nil when none was recorded
+public nonisolated struct FontIdentity: Sendable, Hashable {   // public: DesignTokenResolving parameter
+    public let faceName: String  // PostScript name, e.g. "GTAmerica-Bold"
+    public let familyName: String
+    public let pointSize: CGFloat
+    public let color: TextColor? // flat run ink; nil when none was recorded
 }
 
-nonisolated struct TextColor: Sendable, Hashable {
-    let red, green, blue, alpha: CGFloat   // resolved sRGB, as rendered
+public nonisolated struct TextColor: Sendable, Hashable {      // public: DesignTokenResolving parameter
+    public let red, green, blue, alpha: CGFloat   // resolved sRGB, as rendered
 }
 ```
 
@@ -91,7 +92,7 @@ If the layer walk detected `CGDrawingLayer`s (SwiftUI drew text) but the display
 - All `.text` elements draw a thin outline (indigo, to read distinctly against measurement red and annotation styling), denormalized from unit coordinates into the displayed image frame — same math as measurement.
 - Tap selects the smallest text element under the finger (reuse the smallest-rect policy from `ElementSpacingCalculator.pressedElement`); repeated taps on overlapping elements cycle, matching annotation-selection convention.
 - Selection presents a glass detail card anchored near the element with edge avoidance (same behavior family as the spacing readout menu):
-  - **Line 1 (identity):** `GTAmerica-Bold · 19pt · #1C1C1E` with a color swatch. One row per distinct run when mixed. System faces may render as `SF Pro Semibold · 17pt` via a small `.SFUI-*` prefix mapping — low priority.
+  - **Line 1 (identity):** `GTAmerica-Bold · 19pt · #1C1C1E` with a color swatch. One row per distinct run when mixed. When the host's `DesignTokenResolving` maps a value, its token name replaces the raw reading: `headingM · brandBlue`. System faces may render as `SF Pro Semibold · 17pt` via a small `.SFUI-*` prefix mapping — low priority.
   - **Line 2 (context):** the string, one line, tail-truncated.
   - **Copy affordance:** copies `GTAmerica-Bold 19pt — "Profile Header"`; haptic tick + brief checkmark confirmation.
 - Tap outside any element, tap the selected element again, exiting the mode, or switching screens dismisses the card.
@@ -121,7 +122,7 @@ If the layer walk detected `CGDrawingLayer`s (SwiftUI drew text) but the display
 
 ## 7. Out of Scope (v1) / Future
 
-- Design-token reverse mapping (host-supplied token table naming `bodyM` etc., flagging off-scale sizes) — the natural v2; requires public API for the token table.
+- Off-scale linting (badging values whose `DesignTokenResolving` lookup returns `nil` as "not in the design system") — the resolver seam shipped; matching heuristics live host-side.
 - Line height and alignment in the card — line metrics are already reachable (`EncodedFontMetrics`: capHeight/ascender/descender/leading) if wanted later.
 - `UITextView` / `UITextField` / `CATextLayer` / `UIButton.Configuration` introspection tiers.
 - Persisting font readouts into annotations or the PDF report (deliberately ephemeral, matching measurements).

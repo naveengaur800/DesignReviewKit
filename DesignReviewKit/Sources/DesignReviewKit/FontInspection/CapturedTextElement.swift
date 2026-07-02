@@ -23,22 +23,32 @@ nonisolated struct CapturedTextElement: Identifiable, Sendable, Equatable {
 }
 
 /// A resolved font as it was actually drawn: face, family, size, and ink after
-/// Dynamic Type and style resolution.
-nonisolated struct FontIdentity: Sendable, Hashable {
+/// Dynamic Type and style resolution. Public as the parameter of
+/// ``DesignTokenResolving/fontName(for:)``.
+public nonisolated struct FontIdentity: Sendable, Hashable {
     /// PostScript face name, e.g. `GTAmerica-Bold` or `.SFUI-Semibold`.
-    let faceName: String
+    public let faceName: String
 
-    let familyName: String
+    public let familyName: String
 
-    let pointSize: CGFloat
+    public let pointSize: CGFloat
 
     /// Flat fill color of the run as rendered; `nil` when none was recorded.
     /// Gradient and material fills report their base ink, not the effect.
-    let color: TextColor?
+    public let color: TextColor?
+
+    /// Build an identity directly — hosts construct these to unit-test their
+    /// ``DesignTokenResolving`` implementations.
+    public init(faceName: String, familyName: String, pointSize: CGFloat, color: TextColor?) {
+        self.faceName = faceName
+        self.familyName = familyName
+        self.pointSize = pointSize
+        self.color = color
+    }
 
     /// Face name in designer language: system internals like `.SFUI-Semibold`
     /// read as "SF Pro Semibold"; custom faces stay verbatim.
-    var displayName: String {
+    public var displayName: String {
         if faceName.hasPrefix(".SFUI") {
             let weight = faceName.split(separator: "-").dropFirst().joined(separator: " ")
             return weight.isEmpty || weight == "Regular" ? "SF Pro" : "SF Pro \(weight)"
@@ -49,14 +59,29 @@ nonisolated struct FontIdentity: Sendable, Hashable {
         return faceName
     }
 
-    /// One-line identity for the card and the copy affordance,
-    /// e.g. "GTAmerica-Bold · 19pt · #1C1C1E".
-    var summary: String {
-        var parts = ["\(displayName) · \(formattedPointSize)"]
+    /// Compose the card row, substituting host token names when resolved:
+    /// a font name replaces the face-and-size reading, a color name replaces
+    /// the hex — e.g. "headingM · brandBlue".
+    func rowSummary(fontName: String?, colorName: String?) -> String {
+        var parts = [fontName ?? faceAndSize]
         if let color {
-            parts.append(color.hexString)
+            parts.append(colorName ?? color.hexString)
         }
         return parts.joined(separator: " · ")
+    }
+
+    /// Compose the copy line, keeping raw readings beside token names for
+    /// precision — e.g. "headingM (GTAmerica-Bold · 19pt) · brandBlue (#0088FF)".
+    func copySummary(fontName: String?, colorName: String?) -> String {
+        var parts = [fontName.map { "\($0) (\(faceAndSize))" } ?? faceAndSize]
+        if let color {
+            parts.append(colorName.map { "\($0) (\(color.hexString))" } ?? color.hexString)
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    private var faceAndSize: String {
+        "\(displayName) · \(formattedPointSize)"
     }
 
     private var formattedPointSize: String {
@@ -66,18 +91,26 @@ nonisolated struct FontIdentity: Sendable, Hashable {
     }
 }
 
-/// Resolved sRGB text color as drawn at capture time.
-nonisolated struct TextColor: Sendable, Hashable {
-    let red: CGFloat
-    let green: CGFloat
-    let blue: CGFloat
-    let alpha: CGFloat
+/// Resolved sRGB text color as drawn at capture time. Public as the
+/// parameter of ``DesignTokenResolving/colorName(for:)``.
+public nonisolated struct TextColor: Sendable, Hashable {
+    public let red: CGFloat
+    public let green: CGFloat
+    public let blue: CGFloat
+    public let alpha: CGFloat
+
+    public init(red: CGFloat, green: CGFloat, blue: CGFloat, alpha: CGFloat) {
+        self.red = red
+        self.green = green
+        self.blue = blue
+        self.alpha = alpha
+    }
 
     /// Uppercase hex like "#1C1C1E", with an alpha pair appended only when
     /// the color is translucent, e.g. "#3C3C4399". Wide-gamut components
     /// clamp into sRGB range for the readout; the stored components stay
     /// exact, so the swatch renders the true color.
-    var hexString: String {
+    public var hexString: String {
         func byte(_ value: CGFloat) -> Int {
             Int((max(0, min(1, value)) * 255).rounded())
         }

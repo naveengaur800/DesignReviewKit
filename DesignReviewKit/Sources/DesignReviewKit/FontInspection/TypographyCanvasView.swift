@@ -23,6 +23,8 @@ struct TypographyCanvasView: View {
     /// Whether extraction recovered nothing despite SwiftUI text being drawn;
     /// shows one explanatory banner instead of N empty cards.
     let isExtractionUnavailable: Bool
+    /// Host mapping from readings to design-token names; `nil` shows raw readings.
+    let tokenResolver: (any DesignTokenResolving)?
 
     @State
     private var selectedElementID: UUID?
@@ -150,11 +152,12 @@ struct TypographyCanvasView: View {
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(element.fonts, id: \.self) { font in
+                        let names = tokenNames(for: font)
                         HStack(spacing: 6) {
                             if let color = font.color {
                                 colorSwatch(color)
                             }
-                            Text(font.summary)
+                            Text(font.rowSummary(fontName: names.font, colorName: names.color))
                                 .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(.primary)
                                 // Long identities (custom faces + hex) scale down
@@ -211,10 +214,24 @@ struct TypographyCanvasView: View {
             .overlay(Circle().stroke(Color.primary.opacity(0.2), lineWidth: 0.5))
     }
 
-    /// One-line handoff for annotation comments, e.g.
-    /// `GTAmerica-Bold · 19pt · #1C1C1E — "Profile Header"`.
+    /// The host's token names for a run, when a resolver is supplied and matches.
+    private func tokenNames(for font: FontIdentity) -> (font: String?, color: String?) {
+        guard let tokenResolver else { return (nil, nil) }
+        return (
+            font: tokenResolver.fontName(for: font),
+            color: font.color.flatMap { tokenResolver.colorName(for: $0) }
+        )
+    }
+
+    /// One-line handoff for annotation comments, keeping raw readings beside
+    /// token names, e.g. `headingM (GTAmerica-Bold · 19pt) · brandBlue (#0088FF) — "Profile Header"`.
     private func copySummary(for element: CapturedTextElement) -> String {
-        let fonts = element.fonts.map(\.summary).joined(separator: " | ")
+        let fonts = element.fonts
+            .map { font in
+                let names = tokenNames(for: font)
+                return font.copySummary(fontName: names.font, colorName: names.color)
+            }
+            .joined(separator: " | ")
         return "\(fonts) — “\(element.string.prefix(60))”"
     }
 

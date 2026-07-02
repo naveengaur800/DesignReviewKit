@@ -45,7 +45,9 @@ designer asks for it.
   rendered with: face name, point size, and color (swatch + hex), one row per
   styled run, custom fonts and Dynamic Type resolution included. Text elements are outlined for
   discovery, overlapping ones cycle by tap, and a copy affordance carries
-  `Face · size · #hex — "text"` straight into an annotation comment. SwiftUI text is
+  `Face · size · #hex — "text"` straight into an annotation comment. Hosts can
+  map readings to their own design-token names (`headingM · brandBlue`) by
+  supplying a `DesignTokenResolving` in the inspector's configuration. SwiftUI text is
   recovered by reflecting into the render graph at capture time; UIKit labels
   read directly. Readouts are tooling only — they never enter the report.
 - **PDF reports** — landscape A4: a cover page with app, device, and severity

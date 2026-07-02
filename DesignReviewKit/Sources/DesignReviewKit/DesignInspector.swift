@@ -27,8 +27,13 @@ public final class DesignInspector {
         /// Master switch — hosts that gate the tool at runtime (feature flag) set this once.
         public var isEnabled: Bool
 
-        public init(isEnabled: Bool = true) {
+        /// Map typography-mode readings to the host's design-token names;
+        /// `nil` shows raw readings (face, size, hex) everywhere.
+        public var tokenResolver: (any DesignTokenResolving)?
+
+        public init(isEnabled: Bool = true, tokenResolver: (any DesignTokenResolving)? = nil) {
             self.isEnabled = isEnabled
+            self.tokenResolver = tokenResolver
         }
     }
 
@@ -66,6 +71,7 @@ public final class DesignInspector {
             )
             viewModel = InspectorViewModel(
                 session: session,
+                tokenResolver: configuration.tokenResolver,
                 onSuspend: { [weak self] in self?.dismissOverlay() },
                 onEndSession: { [weak self] in self?.endSession() }
             )

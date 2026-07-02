@@ -76,6 +76,7 @@ when ``DesignInspector/Configuration/isEnabled`` is `false`.
 - ``DesignInspector``
 - ``DesignInspector/beginCapture(in:)``
 - ``DesignInspector/Configuration``
+- ``DesignTokenResolving``
 
 ### SwiftUI Integration
 

@@ -18,7 +18,8 @@ enum AnnotatingStateBuilder {
         selectedAnnotationID: UUID?,
         draftRect: CGRect?,
         commentDraft: InspectorViewModel.CommentDraft?,
-        imageCache: ScreenImageCache
+        imageCache: ScreenImageCache,
+        tokenResolver: (any DesignTokenResolving)?
     ) -> InspectorViewModel.AnnotatingState {
         let screen = session.screens.first { $0.id == activeScreenID } ?? session.screens.last
 
@@ -59,7 +60,8 @@ enum AnnotatingStateBuilder {
                 : [],
             elementFrames: screen?.elementFrames ?? [],
             textElements: screen?.textElements ?? [],
-            fontExtractionUnavailable: screen?.fontExtractionUnavailable ?? false
+            fontExtractionUnavailable: screen?.fontExtractionUnavailable ?? false,
+            tokenResolver: tokenResolver
         )
     }
 

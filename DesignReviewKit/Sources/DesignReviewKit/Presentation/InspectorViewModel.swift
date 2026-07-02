@@ -103,6 +103,7 @@ final class InspectorViewModel: ObservableObject {
 
     private let imageCache = ScreenImageCache()
     private let reportGenerator: PDFReportGenerator
+    private let tokenResolver: (any DesignTokenResolving)?
     private let onSuspend: () -> Void
     private let onEndSession: () -> Void
     private let logger = Logger(subsystem: "DesignReviewKit", category: "Inspector")
@@ -115,11 +116,13 @@ final class InspectorViewModel: ObservableObject {
     init(
         session: ReviewSession,
         reportGenerator: PDFReportGenerator = PDFReportGenerator(),
+        tokenResolver: (any DesignTokenResolving)? = nil,
         onSuspend: @escaping () -> Void,
         onEndSession: @escaping () -> Void
     ) {
         self.session = session
         self.reportGenerator = reportGenerator
+        self.tokenResolver = tokenResolver
         self.onSuspend = onSuspend
         self.onEndSession = onEndSession
         self.activeScreenID = session.screens.last?.id
@@ -129,7 +132,8 @@ final class InspectorViewModel: ObservableObject {
             selectedAnnotationID: nil,
             draftRect: nil,
             commentDraft: nil,
-            imageCache: imageCache
+            imageCache: imageCache,
+            tokenResolver: tokenResolver
         ))
     }
 
@@ -393,7 +397,8 @@ final class InspectorViewModel: ObservableObject {
             selectedAnnotationID: selectedAnnotationID,
             draftRect: draftNormalizedRect,
             commentDraft: commentDraft,
-            imageCache: imageCache
+            imageCache: imageCache,
+            tokenResolver: tokenResolver
         ))
     }
 

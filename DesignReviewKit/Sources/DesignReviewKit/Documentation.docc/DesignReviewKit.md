@@ -62,6 +62,10 @@ when ``DesignInspector/Configuration/isEnabled`` is `false`.
   Long-press an element for its glass menu and choose Spacing to flash the
   distances from its edges to the nearest neighboring elements or its
   container. Measurements are tooling only — they never enter the report.
+- Typography mode (the Aa control) outlines every captured text element; tap
+  one to read the resolved font — face name and point size, one row per styled
+  run — with a copy affordance for carrying the identity into an annotation
+  comment. Like measurements, font readouts never enter the report.
 - Export renders a landscape-A4 PDF: a cover page with app and device metadata,
   then one page per issue. Exporting does not end the session.
 

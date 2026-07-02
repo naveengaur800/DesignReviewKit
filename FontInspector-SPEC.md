@@ -60,7 +60,7 @@ The existing three sources (subviews, accessibility, layers) continue to produce
    - `.effect` case → recurse into the nested list.
    - `.content` case with `.text(StyledTextContentView, CGSize)` → breadth-first search the payload for its `NSAttributedString` (public API from there): string and per-run fonts.
    - Unknown cases → search for nested display lists and recurse.
-   - **Geometry comes from the layer tree, not the display list.** Item frames inside scroll containers are in content coordinates (the live offset exists only in the platform layers — found during simulator validation: outlines floated one nav-bar height off). Each text payload is matched to its `CGDrawingLayer` in paint order by exact size (±0.5pt), and the layer's window frame is authoritative. Unmatched payloads drop — failure is omission, never misplacement. See `FontInspector-ARCHITECTURE.md` §3.
+   - **Geometry comes from the layer tree, not the display list.** Item frames inside scroll containers are in content coordinates (the live offset exists only in the platform layers — found during simulator validation: outlines floated one nav-bar height off). Each text payload is matched to its `CGDrawingLayer` in paint order by exact size (±0.5pt), preferring the candidate nearest the payload's approximate display-list position, and the layer's window frame is authoritative. Unmatched payloads drop — failure is omission, never misplacement. See `FontInspector-ARCHITECTURE.md` §3.
 2. **UILabel**. The subview walk already visits labels for bounds; additionally read `font` / `attributedText` into `TextAttributes`. Catches UIKit hosts, `UIKitNavigationBar` titles, and button labels.
 
 Dedup policy between sources: when a text element and a container coincide (same rect within tolerance), keep the text element.
@@ -103,7 +103,7 @@ If the layer walk detected `CGDrawingLayer`s (SwiftUI drew text) but the display
 ## 4. Edge Cases & Policies
 
 - **Truncated text:** the extracted string is the full source string; the frame is the drawn frame. Show the full string in the card.
-- **Offscreen/clipped text:** the display list contains only drawn content — scrolled-away text is naturally absent, which matches the screenshot the reviewer sees.
+- **Offscreen/clipped text:** the display list contains only drawn content — scrolled-away text is naturally absent, which matches the screenshot the reviewer sees. Elements straddling the capture edge outline and hit-test only their visible portion.
 - **Empty or zero-size items:** filter out empty strings and rects below the existing minimum-element threshold.
 - **SF Symbols / image glyphs:** not text items in the display list; naturally excluded.
 - **Dynamic Type:** fonts arrive post-resolution (`.title2` → `.SFUI-Regular 22pt` verified), so the card reports what was actually rendered at capture time. No style back-mapping in v1.

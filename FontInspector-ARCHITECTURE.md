@@ -65,9 +65,13 @@ coordinates, and the live scroll offset exists only in the platform layer tree
 (this was found and fixed during validation — outlines floated ~168pt off
 inside a `NavigationStack`+`ScrollView`). Instead, SwiftUI renders each text
 into a `CGDrawingLayer`; the extractor collects those layers' window frames in
-paint order and matches payload → layer **in order, by exact size**
-(±0.5pt; sizes align to pixel thirds). The layer's frame is authoritative —
-already scrolled, already transformed.
+paint order and matches payload → layer **in order, by exact size** (±0.5pt;
+sizes align to pixel thirds), **preferring the candidate nearest the payload's
+approximate display-list position** — so a same-size shape layer drawn
+elsewhere can't steal a text's geometry. The layer's frame is authoritative —
+already scrolled, already transformed. Hidden view subtrees are skipped on
+both sides: a hidden host's payloads have no visible layers and would
+otherwise consume same-size candidates belonging to visible text.
 
 A payload with no matching layer is dropped (fails toward omission, never
 toward a wrong position). A layer with no payload simply isn't a text layer.

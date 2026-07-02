@@ -30,6 +30,11 @@ struct TypographyCanvasView: View {
     @State
     private var didCopy = false
 
+    /// Monotonic tap counter keying the confirmation-reset task, so re-copying
+    /// while the checkmark shows restarts the timer instead of inheriting it.
+    @State
+    private var copyCount = 0
+
     @State
     private var selectionHaptics = UIImpactFeedbackGenerator(style: .light)
 
@@ -67,9 +72,9 @@ struct TypographyCanvasView: View {
                 handleTap(at: location, imageFrame: imageFrame)
             }
         }
-        .task(id: didCopy) {
+        .task(id: copyCount) {
             // Show the copy confirmation briefly, then restore the affordance.
-            guard didCopy else { return }
+            guard copyCount > 0 else { return }
             try? await Task.sleep(for: .seconds(Metrics.copyConfirmationSeconds))
             didCopy = false
         }
@@ -81,12 +86,19 @@ struct TypographyCanvasView: View {
         textElements.first { $0.id == selectedElementID }
     }
 
+    /// The element's on-canvas rect, clipped to the capture: elements straddling
+    /// the capture edge mid-scroll must not draw or hit-test over the chrome.
+    /// `.null` when nothing of the element is visible.
+    private func displayRect(for element: CapturedTextElement, in imageFrame: CGRect) -> CGRect {
+        element.normalizedRect.denormalized(in: imageFrame).intersection(imageFrame)
+    }
+
     /// Select the smallest text element under the tap; repeated taps cycle
     /// through overlapping elements, and tapping clear space dismisses.
     private func handleTap(at location: CGPoint, imageFrame: CGRect) {
         let candidates = textElements
-            .map { (element: $0, rect: $0.normalizedRect.denormalized(in: imageFrame)) }
-            .filter { $0.rect.contains(location) }
+            .map { (element: $0, rect: displayRect(for: $0, in: imageFrame)) }
+            .filter { !$0.rect.isNull && $0.rect.contains(location) }
             .sorted { $0.rect.width * $0.rect.height < $1.rect.width * $1.rect.height }
 
         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
@@ -111,17 +123,19 @@ struct TypographyCanvasView: View {
 
     // MARK: - Outlines
 
+    @ViewBuilder
     private func elementOutline(_ element: CapturedTextElement, imageFrame: CGRect) -> some View {
-        let rect = element.normalizedRect.denormalized(in: imageFrame)
-        let isSelected = element.id == selectedElementID
-
-        return ZStack {
-            if isSelected {
+        let rect = displayRect(for: element, in: imageFrame)
+        if !rect.isNull, rect.width > 0.5, rect.height > 0.5 {
+            let isSelected = element.id == selectedElementID
+            ZStack {
+                if isSelected {
+                    Path { $0.addRect(rect) }
+                        .fill(Color.indigo.opacity(0.08))
+                }
                 Path { $0.addRect(rect) }
-                    .fill(Color.indigo.opacity(0.08))
+                    .stroke(Color.indigo.opacity(isSelected ? 1 : 0.55), lineWidth: isSelected ? 1.5 : 1)
             }
-            Path { $0.addRect(rect) }
-                .stroke(Color.indigo.opacity(isSelected ? 1 : 0.55), lineWidth: isSelected ? 1.5 : 1)
         }
     }
 
@@ -155,6 +169,9 @@ struct TypographyCanvasView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .glassEffect(.regular, in: .rect(cornerRadius: 14))
+        // Swallow taps on the card body: a copy tap that misses the button must
+        // not fall through and reselect whatever sits under the card.
+        .onTapGesture {}
         .frame(maxWidth: 300)
         .position(cardPosition(for: element, in: imageFrame))
         .transition(.scale(scale: 0.9).combined(with: .opacity))
@@ -165,6 +182,7 @@ struct TypographyCanvasView: View {
             UIPasteboard.general.string = copySummary(for: element)
             selectionHaptics.impactOccurred()
             didCopy = true
+            copyCount += 1
         } label: {
             Image(systemName: didCopy ? "checkmark" : "doc.on.doc")
                 .font(.system(size: 13, weight: .semibold))
@@ -183,9 +201,11 @@ struct TypographyCanvasView: View {
         return "\(fonts) — “\(element.string.prefix(60))”"
     }
 
-    /// Float the card just above the element, clamped inside the capture.
+    /// Float the card just above the element's visible portion, clamped inside
+    /// the capture.
     private func cardPosition(for element: CapturedTextElement, in imageFrame: CGRect) -> CGPoint {
-        let rect = element.normalizedRect.denormalized(in: imageFrame)
+        let rect = displayRect(for: element, in: imageFrame)
+        guard !rect.isNull else { return CGPoint(x: imageFrame.midX, y: imageFrame.midY) }
         return CGPoint(x: rect.midX, y: rect.minY - Metrics.cardLift)
             .clamped(to: imageFrame.insetBy(dx: Metrics.cardEdgeInsetX, dy: Metrics.cardEdgeInsetY))
     }

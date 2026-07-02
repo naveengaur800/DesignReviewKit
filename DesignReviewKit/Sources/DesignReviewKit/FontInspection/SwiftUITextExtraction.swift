@@ -19,7 +19,9 @@ import UIKit
 ///   Display-list frames are unreliable across scroll boundaries (they're in
 ///   content coordinates; the live offset exists only in the layer tree), so
 ///   each text payload is matched to its drawing layer — in paint order, by
-///   exact size — and the layer's window frame is authoritative.
+///   exact size, preferring the candidate nearest the payload's approximate
+///   position so a same-size shape drawn elsewhere can't steal a text's
+///   geometry — and the layer's window frame is authoritative.
 ///
 /// Everything is reached with `Mirror` over stored properties and layer-class
 /// name checks. No private selectors are called and no private symbols are
@@ -51,6 +53,7 @@ enum SwiftUITextExtraction {
         static let nestedListLimit = 8
         static let displayListDepth = 40
         static let layerWalkDepth = 50
+        static let viewWalkDepth = 50
     }
 
     /// Matching tolerance between a text item's size and its layer's bounds;
@@ -62,6 +65,10 @@ enum SwiftUITextExtraction {
         let size: CGSize
         let string: String
         let fonts: [UIFont]
+        /// Display-list position — exact for unscrolled content, offset by the
+        /// scroll distance inside scroll containers. Used only to choose
+        /// between same-size layer candidates, never as final geometry.
+        let approximateCenter: CGPoint
     }
 
     /// Extract all rendered SwiftUI text under `window`.
@@ -74,68 +81,95 @@ enum SwiftUITextExtraction {
                 depthLimit: SearchLimits.graphDepth,
                 limit: 1
             ).first else { continue }
-            collectTexts(in: displayList, into: &pending, depth: 0)
+            var local: [PendingText] = []
+            collectTexts(in: displayList, origin: .zero, into: &local, depth: 0)
+            pending.append(contentsOf: local.map { text in
+                PendingText(
+                    size: text.size,
+                    string: text.string,
+                    fonts: text.fonts,
+                    approximateCenter: window.convert(text.approximateCenter, from: hostingView)
+                )
+            })
         }
 
-        // Pair payloads with layers in paint order: the k-th text of a given
-        // size maps to the k-th drawing layer of that size.
+        // Pair payloads with layers in paint order. Candidates must match the
+        // payload's size; among them the layer nearest the payload's
+        // approximate position wins, so a same-size shape drawn elsewhere
+        // can't steal a text's geometry.
         var layers = drawingLayerFrames(in: window).map { (frame: $0, isConsumed: false) }
         var results: [ExtractedText] = []
         for text in pending {
-            guard let index = layers.firstIndex(where: { candidate in
-                !candidate.isConsumed
-                    && abs(candidate.frame.width - text.size.width) < Self.sizeTolerance
-                    && abs(candidate.frame.height - text.size.height) < Self.sizeTolerance
+            let candidates = layers.indices.filter { index in
+                !layers[index].isConsumed
+                    && abs(layers[index].frame.width - text.size.width) < Self.sizeTolerance
+                    && abs(layers[index].frame.height - text.size.height) < Self.sizeTolerance
+            }
+            guard let nearest = candidates.min(by: { lhs, rhs in
+                squaredDistance(from: layers[lhs].frame, to: text.approximateCenter)
+                    < squaredDistance(from: layers[rhs].frame, to: text.approximateCenter)
             }) else { continue }
-            layers[index].isConsumed = true
-            results.append(ExtractedText(frame: layers[index].frame, string: text.string, fonts: text.fonts))
+            layers[nearest].isConsumed = true
+            results.append(ExtractedText(frame: layers[nearest].frame, string: text.string, fonts: text.fonts))
         }
         return results
+    }
+
+    private static func squaredDistance(from frame: CGRect, to point: CGPoint) -> CGFloat {
+        let deltaX = frame.midX - point.x
+        let deltaY = frame.midY - point.y
+        return deltaX * deltaX + deltaY * deltaY
     }
 
     // MARK: - Hosting Views
 
     /// Views owning a render graph: `_UIHostingView` plus internal hosts such as
     /// `NavigationStackHostingController`'s content view, where navigation
-    /// destinations actually render.
+    /// destinations actually render. Hidden subtrees are skipped — a hidden
+    /// host's payloads have no visible layers and would steal same-size
+    /// candidates from visible text.
     private static func hostingViews(under root: UIView) -> [UIView] {
         var matches: [UIView] = []
-        func walk(_ view: UIView) {
+        func walk(_ view: UIView, depth: Int) {
+            guard depth < SearchLimits.viewWalkDepth, !view.isHidden, view.alpha > 0.01 else { return }
             if String(reflecting: type(of: view)).contains("Hosting") {
                 matches.append(view)
             }
             for subview in view.subviews {
-                walk(subview)
+                walk(subview, depth: depth + 1)
             }
         }
-        walk(root)
+        walk(root, depth: 0)
         return matches
     }
 
     // MARK: - Payload Collection
 
-    /// Collect text payloads from a `SwiftUI.DisplayList` in paint order.
-    private static func collectTexts(in list: Any, into pending: inout [PendingText], depth: Int) {
+    /// Collect text payloads from a `SwiftUI.DisplayList` in paint order,
+    /// accumulating item origins into the approximate position heuristic.
+    private static func collectTexts(in list: Any, origin: CGPoint, into pending: inout [PendingText], depth: Int) {
         guard depth < SearchLimits.displayListDepth else { return }
         guard let items = Mirror(reflecting: list).children.first(where: { $0.label == "items" })?.value else { return }
         for element in Mirror(reflecting: items).children {
-            collectItemTexts(element.value, into: &pending, depth: depth)
+            collectItemTexts(element.value, origin: origin, into: &pending, depth: depth)
         }
     }
 
-    private static func collectItemTexts(_ item: Any, into pending: inout [PendingText], depth: Int) {
+    private static func collectItemTexts(_ item: Any, origin: CGPoint, into pending: inout [PendingText], depth: Int) {
         let mirror = Mirror(reflecting: item)
         guard let frame = mirror.children.first(where: { $0.label == "frame" })?.value as? CGRect,
               let value = mirror.children.first(where: { $0.label == "value" })?.value,
               let itemCase = Mirror(reflecting: value).children.first
         else { return }
 
+        let itemOrigin = CGPoint(x: origin.x + frame.origin.x, y: origin.y + frame.origin.y)
+
         switch itemCase.label {
         case "effect":
             // (Effect, DisplayList) — descend into the nested list.
             for tupleChild in Mirror(reflecting: itemCase.value).children
             where String(reflecting: type(of: tupleChild.value)) == "SwiftUI.DisplayList" {
-                collectTexts(in: tupleChild.value, into: &pending, depth: depth + 1)
+                collectTexts(in: tupleChild.value, origin: itemOrigin, into: &pending, depth: depth + 1)
             }
 
         case "content":
@@ -144,7 +178,11 @@ enum SwiftUITextExtraction {
                 let contentCase = Mirror(reflecting: contentValue).children.first
             else { return }
             if contentCase.label == "text" {
-                appendText(from: contentCase.value, size: frame.size, into: &pending)
+                let center = CGPoint(
+                    x: itemOrigin.x + frame.size.width / 2,
+                    y: itemOrigin.y + frame.size.height / 2
+                )
+                appendText(from: contentCase.value, size: frame.size, center: center, into: &pending)
             }
 
         default:
@@ -156,14 +194,14 @@ enum SwiftUITextExtraction {
                 depthLimit: SearchLimits.payloadDepth,
                 limit: SearchLimits.nestedListLimit
             ) {
-                collectTexts(in: nested, into: &pending, depth: depth + 1)
+                collectTexts(in: nested, origin: itemOrigin, into: &pending, depth: depth + 1)
             }
         }
     }
 
     /// Pull string and per-run fonts out of a `text(StyledTextContentView, _)`
     /// payload via its stored `NSAttributedString`.
-    private static func appendText(from payload: Any, size: CGSize, into pending: inout [PendingText]) {
+    private static func appendText(from payload: Any, size: CGSize, center: CGPoint, into pending: inout [PendingText]) {
         let attributedStrings = searchStoredValues(
             from: payload,
             nodeBudget: SearchLimits.payloadNodeBudget,
@@ -172,7 +210,12 @@ enum SwiftUITextExtraction {
         ) { $0 is NSAttributedString }
         guard let attributed = attributedStrings.first as? NSAttributedString else { return }
 
-        pending.append(PendingText(size: size, string: attributed.string, fonts: attributed.distinctRunFonts))
+        pending.append(PendingText(
+            size: size,
+            string: attributed.string,
+            fonts: attributed.distinctRunFonts,
+            approximateCenter: center
+        ))
     }
 
     // MARK: - Layer Geometry
@@ -237,9 +280,13 @@ enum SwiftUITextExtraction {
                 guard visited.insert(identifier).inserted else { continue }
             }
 
+            // Cap the queue as well as processed nodes: one reflected node
+            // holding a huge collection must not balloon memory before the
+            // processing budget bites.
             var mirror: Mirror? = Mirror(reflecting: value)
-            while let current = mirror {
+            while let current = mirror, queue.count < nodeBudget {
                 for child in current.children {
+                    guard queue.count < nodeBudget else { break }
                     queue.append((child.value, depth + 1))
                 }
                 mirror = current.superclassMirror

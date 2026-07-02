@@ -1,12 +1,13 @@
 # DesignReviewKit
 
-Capture, annotate, measure, and export design feedback — from inside your iOS app.
+Capture, annotate, measure, inspect fonts, and export design feedback — from inside your iOS app.
 
 <p align="center">
   <img src="Assets/home.png" width="156" alt="Demo app before entering review mode" />
   <img src="Assets/annotate.png" width="156" alt="Annotation canvas with severity-colored rectangles" />
   <img src="Assets/comment.png" width="156" alt="Comment sheet with severity picker" />
   <img src="Assets/measure.png" width="156" alt="Measurement mode showing spacing between elements" />
+  <img src="Assets/typography.png" width="156" alt="Typography mode revealing the resolved font of a tapped text element" />
   <img src="Assets/export.png" width="156" alt="Generated PDF report preview" />
 </p>
 
@@ -40,6 +41,13 @@ designer asks for it.
   accessibility hierarchies at capture time — hairline dividers included) and a
   guide that lights up along the snapped edge. Long-press an element for a glass
   menu and read its spacing to every neighbor at once.
+- **Typography mode** — tap any text element to read the font it actually
+  rendered with: face name and point size, one row per styled run, custom fonts
+  and Dynamic Type resolution included. Text elements are outlined for
+  discovery, overlapping ones cycle by tap, and a copy affordance carries
+  `Face · size — "text"` straight into an annotation comment. SwiftUI text is
+  recovered by reflecting into the render graph at capture time; UIKit labels
+  read directly. Readouts are tooling only — they never enter the report.
 - **PDF reports** — landscape A4: a cover page with app, device, and severity
   metadata, then one page per issue with the full screenshot (siblings ghosted)
   beside the commentary. Annotations render vectorially, crisp at any zoom.
@@ -85,6 +93,8 @@ Gate the trigger to Debug and TestFlight builds; the package ships inert when
 | `DesignReviewKit/` | The Swift package — add this folder as a local package dependency |
 | `View Drawing/` | Demo app showing integration: shake trigger + toolbar button |
 | `DesignReviewKit-SPEC.md` | The original product specification |
+| `FontInspector-SPEC.md` | Typography mode: decisions and behavior |
+| `FontInspector-ARCHITECTURE.md` | Typography mode: extraction mechanism + repair playbook for future iOS releases |
 
 The package also ships a DocC catalog — build documentation in Xcode
 (<kbd>⌃⇧⌘D</kbd>) for the full guide.

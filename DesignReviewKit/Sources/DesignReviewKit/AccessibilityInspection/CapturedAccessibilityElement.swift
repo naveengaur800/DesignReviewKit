@@ -31,6 +31,9 @@ nonisolated struct CapturedAccessibilityElement: Identifiable, Sendable, Equatab
     /// The source object's class, e.g. `AccessibilityNode` (SwiftUI) or `UIButton`.
     let sourceClass: String
 
+    /// What VoiceOver would speak for this element, composed at capture time.
+    let voiceOver: VoiceOverUtterance
+
     /// Factual review findings computed at capture.
     let flags: Set<Flag>
 

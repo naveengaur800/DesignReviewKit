@@ -129,15 +129,24 @@ struct AccessibilityElementCapturer {
             flags.insert(.missingLabel)
         }
 
+        let value = cleaned(object.accessibilityValue)
+        let hint = cleaned(object.accessibilityHint)
+
         return CapturedAccessibilityElement(
             id: UUID(),
             normalizedRect: frame.normalized(in: windowBounds),
             label: label,
-            value: cleaned(object.accessibilityValue),
-            hint: cleaned(object.accessibilityHint),
+            value: value,
+            hint: hint,
             identifier: identifier(of: object),
             traitNames: AccessibilityTraitDecoder.names(for: traits),
             sourceClass: String(describing: type(of: object)),
+            voiceOver: VoiceOverUtteranceComposer.compose(
+                label: label,
+                value: value,
+                hint: hint,
+                traits: traits
+            ),
             flags: flags
         )
     }

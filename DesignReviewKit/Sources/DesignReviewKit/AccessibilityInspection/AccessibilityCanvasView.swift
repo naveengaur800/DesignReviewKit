@@ -43,6 +43,10 @@ struct AccessibilityCanvasView: View {
     @State
     private var cardSize: CGSize = .zero
 
+    /// Speaks the selected element's VoiceOver utterance aloud.
+    @State
+    private var speech = AccessibilitySpeechController()
+
     private enum Metrics {
         static let cardSpacing: CGFloat = 12
         static let cardEdgeMargin: CGFloat = 8
@@ -84,6 +88,9 @@ struct AccessibilityCanvasView: View {
             try? await Task.sleep(for: .seconds(Metrics.copyConfirmationSeconds))
             didCopy = false
         }
+        // Release the audio session when leaving the mode (tool switch, screen
+        // change via `.id`, or dismiss), restoring other apps' audio.
+        .onDisappear { speech.end() }
     }
 
     // MARK: - Selection
@@ -125,6 +132,13 @@ struct AccessibilityCanvasView: View {
                 selectionHaptics.impactOccurred()
             }
         }
+
+        // Speak the newly selected element, or fall silent when clearing.
+        if let element = selectedElement {
+            speech.speak(element.voiceOver)
+        } else {
+            speech.stop()
+        }
     }
 
     // MARK: - Outlines
@@ -154,8 +168,13 @@ struct AccessibilityCanvasView: View {
             HStack(alignment: .top) {
                 labelRow(for: element)
                 Spacer(minLength: 8)
+                if !element.voiceOver.isEmpty {
+                    speakerButton(for: element)
+                }
                 copyButton(for: element)
             }
+
+            spokenLine(for: element)
 
             propertyRow("Value", element.value)
             propertyRow("Hint", element.hint)
@@ -219,6 +238,39 @@ struct AccessibilityCanvasView: View {
             .font(.caption2.weight(.medium))
             .foregroundStyle(.orange)
             .padding(.top, 2)
+    }
+
+    /// The composed announcement VoiceOver would speak, shown so it can be read
+    /// as well as heard.
+    @ViewBuilder
+    private func spokenLine(for element: CapturedAccessibilityElement) -> some View {
+        if !element.voiceOver.isEmpty {
+            HStack(alignment: .firstTextBaseline, spacing: 5) {
+                Image(systemName: "speaker.wave.2.fill")
+                    .font(.caption2)
+                Text(element.voiceOver.spoken)
+                    .font(.caption)
+                    .italic()
+                    .lineLimit(2)
+            }
+            .foregroundStyle(.secondary)
+            .padding(.bottom, 2)
+        }
+    }
+
+    private func speakerButton(for element: CapturedAccessibilityElement) -> some View {
+        Button {
+            speech.speak(element.voiceOver)
+            selectionHaptics.impactOccurred()
+        } label: {
+            Image(systemName: "speaker.wave.2.fill")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 26, height: 26)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Play VoiceOver Announcement")
     }
 
     private func copyButton(for element: CapturedAccessibilityElement) -> some View {

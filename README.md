@@ -52,8 +52,10 @@ designer asks for it.
   read directly. Readouts are tooling only — they never enter the report.
 - **Accessibility mode** — tap any element to read the exact accessibility
   properties a developer set on it: label, value, hint, traits, and
-  `accessibilityIdentifier`. Every element is outlined, so the overlay doubles as
-  a map of what VoiceOver can reach and in what order; missing labels on
+  `accessibilityIdentifier` — and **hear the announcement VoiceOver would speak**,
+  composed from those properties and read aloud with a tap, so you can review
+  without turning VoiceOver on. Every element is outlined, so the overlay doubles
+  as a map of what VoiceOver can reach and in what order; missing labels on
   interactive elements are flagged. Overlapping elements cycle by tap, and a copy
   affordance carries the summary into an annotation comment. Reading SwiftUI's
   tree needs a small host-side runtime enabler
@@ -105,9 +107,14 @@ Gate the trigger to Debug and TestFlight builds; the package ships inert when
 > is the one remaining check. See `AccessibilityInspector-SPEC.md`.
 
 Accessibility mode reads the same properties VoiceOver reads and shows them on a
-card when you tap an element. Because iOS does not materialize a process's
-accessibility tree — especially SwiftUI's bridged nodes — while no assistive
-technology is attached, the mode needs that tree switched on at capture time.
+card when you tap an element. It also composes the announcement VoiceOver would
+speak — label, value, trait words, and hints — and reads it aloud through
+`AVSpeechSynthesizer`, so you can hear a screen the way VoiceOver users do without
+switching VoiceOver on. (The per-element wording follows VoiceOver's rules;
+positional context like "2 of 5" and the exact voice/cadence are out of scope.)
+Because iOS does not materialize a process's accessibility tree — especially
+SwiftUI's bridged nodes — while no assistive technology is attached, the mode
+needs that tree switched on at capture time.
 **The package never links a private symbol to do this.** Instead the host
 provides a tiny enabler and the package calls it once at creation. Adopting it is
 three additions on the client side.

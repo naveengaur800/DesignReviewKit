@@ -277,10 +277,18 @@ precedent). The spike harness stays in the demo app for exactly this re-run.
 
 Recorded so future readers know what was considered and why it's absent:
 
-- **VoiceOver playback simulator** — descoped; system-composed speech/order
-  can't be read via any public API, only re-implemented (a permanent parity
-  burden). Prior art: cashapp/AccessibilitySnapshot re-implements it and
-  still requires a private enabler.
+- **VoiceOver playback simulator** — originally descoped; system-composed
+  speech/order can't be read via any public API, only re-implemented (a
+  permanent parity burden). **Tier 1 added 2026-07-03**: per-element
+  tap-to-speak. `VoiceOverUtteranceComposer` composes the announcement (label,
+  value, state/role trait words, hints) at capture time; `AccessibilitySpeechController`
+  reads it aloud via `AVSpeechSynthesizer`. Deliberately *not* included, and
+  the reason it stays "on par" not "identical": positional container context
+  ("2 of 5", "Tab 1 of 3", list/landmark boundaries — needs capture-time
+  grouping detection), switch/tab/back trait suppression (private traits), the
+  reviewer's actual VO voice/rate/cadence (unreadable), and a parity
+  verification suite (transcribe real VO → fixtures). Those are the Tier 2/3
+  follow-ups.
 - **Private AX-runtime enabler** (`dlopen` + `_AXSSetAutomationEnabled`) —
   **rejected inside the package** (hard constraint: DesignReviewKit contains
   no private API). Amended 2026-07-03: hosts may opt in with their own
